@@ -24,21 +24,21 @@ async function checkQueue() {
     orderBy: { joinedAt: 'asc' }
   });
 
-  while (queue.length >= 2) {
-    const playersToMatch = queue.splice(0, 2);
+  while (queue.length >= 10) {
+    const playersToMatch = queue.splice(0, 10);
 
-    const playersIds = playersToMatch.map(q => ({ id: q.userId }));
+    const playerIds = playersToMatch.map(q => ({ id: q.userId }));
     const match = await prisma.match.create({
       data: {
-        players: { connect: playersIds }
+        players: { connect: playerIds }
       },
       include: { players: true }
     });
 
-    const idsToRemove = playersToMatch.map(p => p.id);
-    await prisma.matchQueue.deleteMany({ where: { id: { in: idsToRemove } } });
+    const userIdsToRemove = playersToMatch.map(p => p.userId);
+    await prisma.matchQueue.deleteMany({ where: { userId: { in: userIdsToRemove } } });
 
-    // Notify players in the match
+    // Notify players
     match.players.forEach(player => {
       io.to(player.id).emit('matchCreated', { matchId: match.id, players: match.players });
     });

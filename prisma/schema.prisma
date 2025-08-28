@@ -11,24 +11,25 @@ datasource db {
 
 // User Model
 model User {
-  id          String        @id @default(cuid())
-  steamId     String        @unique @map("steam_id")
-  displayName String        @map("display_name")
-  avatarUrl   String?       @map("avatar_url")
-  profileUrl  String        @map("profile_url")
-  realName    String?       @map("real_name")
-  country     String?
-  state       String?
-  city        String?
-  friendsListAccess Boolean @default(false) @map("friends_list_access")
-  createdAt   DateTime      @default(now()) @map("created_at")
-  updatedAt   DateTime      @updatedAt @map("updated_at")
-  lastLoginAt DateTime?     @map("last_login_at")
+  id              String        @id @default(cuid())
+  steamId         String        @unique @map("steam_id")
+  displayName     String        @map("display_name")
+  avatarUrl       String?       @map("avatar_url")
+  profileUrl      String        @map("profile_url")
+  realName        String?       @map("real_name")
+  country         String?
+  state           String?
+  city            String?
+  friendsListAccess Boolean     @default(false) @map("friends_list_access")
+  createdAt       DateTime      @default(now()) @map("created_at")
+  updatedAt       DateTime      @updatedAt @map("updated_at")
+  lastLoginAt     DateTime?     @map("last_login_at")
+
   // Relations
   friends     Friend[]
   matches     Match[]       @relation("MatchPlayers")
   matchQueue  MatchQueue?
-  lobbyPlayers LobbyPlayer[] // <== Added for relation with LobbyPlayer
+
   @@map("users")
 }
 
@@ -44,20 +45,33 @@ model Friend {
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   createdAt    DateTime @default(now()) @map("created_at")
   updatedAt    DateTime @updatedAt @map("updated_at")
+
   @@unique([userId, steamId])
   @@map("friends")
 } 
+
+enum MatchStatus {
+  pending
+  ready
+  started
+  finished
+  cancelled
+}
 
 // Match Model
 model Match {
   id        String    @id @default(cuid())
   players   User[]    @relation("MatchPlayers")
-  accepted  String[]  @default([]) // Array of user IDs who have accepted
-  declined  String[]  @default([]) // Array of user IDs who have declined
-  maps      String[]  @default([]) // Current map pool
-  vetoed    String[]  @default([]) // Map veto history
-  status    String    @default("pending") // pending, cancelled, lobby, started
+  accepted  String[]  @default([])
+  declined  String[]  @default([])
+  maps      String[]  @default([])
+  vetoed    String[]  @default([])
+  status    MatchStatus @default(pending)
   createdAt DateTime  @default(now())
+
+  // Relation
+
+
   @@map("matches")
 }
 
@@ -67,46 +81,7 @@ model MatchQueue {
   user     User     @relation(fields: [userId], references: [id])
   userId   String   @unique
   joinedAt DateTime @default(now())
+
   @@map("match_queue")
 }
 
-// Lobby Model
-model Lobby {
-  id          String       @id @default(uuid())
-  matchId     String       @unique
-  status      String       // "awaiting_veto", "map_selected", "ready"
-  createdAt   DateTime     @default(now())
-  mapPool     String[]     // List of available maps
-  selectedMap String?
-  teams       LobbyTeam[]
-  lobby       Lobby        @relation(fields: [lobbyId], references: [id])
-}
-
-// LobbyTeam Model
-model LobbyTeam {
-  id        String       @id @default(uuid())
-  lobbyId   String
-  teamName  String       // "Team A" or "Team B"
-  captainId String       // userId of captain
-  players   LobbyPlayer[]
-}
-
-// LobbyPlayer Model
-model LobbyPlayer {
-  id      String   @id @default(uuid())
-  lobbyId String
-  teamId  String
-  userId  String
-  user    User     @relation(fields: [userId], references: [id])
-  team    LobbyTeam @relation(fields: [teamId], references: [id])
-}
-
-// VetoAction Model
-model VetoAction {
-  id        String   @id @default(uuid())
-  lobbyId   String
-  captainId String
-  action    String   // "ban"
-  mapName   String
-  createdAt DateTime @default(now())
-}
