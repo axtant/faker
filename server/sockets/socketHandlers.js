@@ -1,9 +1,13 @@
+const matchmakingService = require('../services/matchmakingService');
+
 module.exports = (socket) => {
-  console.log(`Socket connected: ${socket.id}`);
+  const userId = socket.request?.session?.passport?.user;
+  console.log(`Socket connected: ${socket.id}, userId: ${userId}`);
 
-  socket.on('disconnect', () => {
-    console.log(`Socket disconnected: ${socket.id}`);
+  socket.on('disconnect', async () => {
+    console.log(`Socket disconnected: ${socket.id}, userId: ${userId}`);
+    if (userId) {
+      try { await matchmakingService.removeFromQueue(userId); } catch (e) { console.error(e); }
+    }
   });
-
-  // TODO: Add more socket event handlers (e.g. vetoAction, lobby events) here
 };
