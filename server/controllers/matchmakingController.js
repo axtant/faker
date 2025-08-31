@@ -1,5 +1,6 @@
 const ensureAuthenticated = require('../middleware/ensureAuthenticated');
-const matchmakingService = require('../services/matchmakingService');
+// const matchmakingService = require('../services/matchmakingService');
+const matchmakingService = require('../services/queueManager');
 
 exports.startMatchmaking = [
   ensureAuthenticated,

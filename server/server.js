@@ -7,11 +7,13 @@ require('dotenv').config();
 const http = require('http');
 const { Server } = require('socket.io');
 
-const matchmakingService = require('./services/matchmakingService');
+// const matchmakingService = require('./services/matchmakingService');
 const passport = require('./services/steamAuthService');
 const authController = require('./controllers/authController');
 const userController = require('./controllers/userController');
 const matchmakingController = require('./controllers/matchmakingController');
+const matchmakingService = require('./services/queueManager');
+
 const ensureAuthenticated = require('./middleware/ensureAuthenticated');
 const socketHandlers = require('./sockets/socketHandlers');
 
@@ -76,9 +78,9 @@ io.on('connection', (socket) => {
 });
 
 // --- CLEANUP STALE QUEUE ENTRIES ---
-setInterval(() => {
-  matchmakingService.cleanupStaleEntries(io).catch(console.error);
-}, 15_000);
+// setInterval(() => {
+//   matchmakingService.cleanupStaleEntries(io).catch(console.error);
+// }, 15_000);
 
 // --- SERVER START ---
 const PORT = process.env.PORT || 3000;
