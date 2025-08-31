@@ -1,39 +1,48 @@
-import { apiPost, apiGet } from './api.js';
+// matchmaking.js
+export function setupMatchmaking(currentUser) {
+  const socket = io('', { query: { userId: currentUser.id } });
+  const joinBtn = document.getElementById("join-queue-btn");
+  const leaveBtn = document.getElementById("leave-queue-btn");
+  const queueSizeEl = document.getElementById("queue-size");
+  const matchStatusEl = document.getElementById("match-status");
 
-let socket;
-let inQueue = false;
+  let inQueue = false;
 
-export function setupMatchmaking(user) {
-  socket = io('', { query: { userId: user.id } });
+  socket.on("queueUpdated", ({ queueSize, players }) => {
+    queueSizeEl.textContent = queueSize;
+    console.log("Queue updated:", players);
+  });
 
-  socket.on('matchCreated', data => {
-    if (data.players.some(p => p.id === user.id)) {
-      renderMatch(data.players);
+  socket.on("matchCreated", ({ players }) => {
+    matchStatusEl.textContent = `✅ Match created: ${players.join(", ")}`;
+    inQueue = false;
+    joinBtn.disabled = false;
+    leaveBtn.disabled = true;
+  });
+
+  joinBtn.addEventListener("click", async () => {
+    joinBtn.disabled = true;
+    try {
+      await fetch("/api/matchmaking/start", { method: "POST" });
+      inQueue = true;
+      matchStatusEl.textContent = "⏳ Waiting for players...";
+      leaveBtn.disabled = false;
+    } catch (err) {
+      console.error(err);
+      joinBtn.disabled = false;
     }
   });
 
-  document.getElementById('toggleQueueBtn').addEventListener('click', toggleQueue);
-}
-
-async function toggleQueue() {
-  const btn = document.getElementById('toggleQueueBtn');
-  btn.disabled = true;
-
-  if (!inQueue) {
-    await apiPost('/api/matchmaking/start');
-    btn.textContent = 'Leave Queue';
-    inQueue = true;
-  } else {
-    await apiPost('/api/matchmaking/leave');
-    btn.textContent = 'Start Matchmaking';
-    inQueue = false;
-  }
-
-  btn.disabled = false;
-}
-
-function renderMatch(players) {
-  const list = document.getElementById('matchPlayersList');
-  list.innerHTML = players.map(p => `<li>${p.displayName}</li>`).join('');
-  document.getElementById('matchFound').style.display = 'block';
+  leaveBtn.addEventListener("click", async () => {
+    leaveBtn.disabled = true;
+    try {
+      await fetch("/api/matchmaking/leave", { method: "POST" });
+      inQueue = false;
+      matchStatusEl.textContent = "❌ Left the queue.";
+      joinBtn.disabled = false;
+    } catch (err) {
+      console.error(err);
+      leaveBtn.disabled = false;
+    }
+  });
 }

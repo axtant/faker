@@ -35,3 +35,8 @@ window.addEventListener('DOMContentLoaded', async () => {
   await loadUser();
   setupMatchmaking(currentUser);
 });
+
+window.addEventListener('DOMContentLoaded', async () => {
+  await loadUser();
+  setupMatchmaking(currentUser); // pass the user object
+});

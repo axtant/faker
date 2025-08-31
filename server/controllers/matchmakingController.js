@@ -1,61 +1,23 @@
-const ensureAuthenticated = require('../middleware/ensureAuthenticated');
-// const matchmakingService = require('../services/matchmakingService');
-const matchmakingService = require('../services/queueManager');
+// controllers/matchmakingController.js
+module.exports = (io, queueManager) => ({
+  startMatchmaking: (req, res) => {
+    const userId = req.user.id; // only pass userId
+    const result = queueManager.addToQueue(userId, io);
+    res.json(result);
+  },
 
-exports.startMatchmaking = [
-  ensureAuthenticated,
-  async (req, res) => {
-    try {
-      const queueSize = await matchmakingService.addToQueue(req.user.id);
-      res.json({ queueSize });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to join matchmaking queue' });
-    }
+  leaveMatchmaking: (req, res) => {
+    const userId = req.user.id; // only pass userId
+    const result = queueManager.removeFromQueue(userId, io);
+    res.json(result);
+  },
+
+  getMatchmakingStatus: (req, res) => {
+    res.json(queueManager.getQueue());
+  },
+
+  resetMatchmakingQueue: (req, res) => {
+    const result = queueManager.resetQueue(io);
+    res.json(result);
   }
-];
-
-exports.leaveMatchmaking = [
-  ensureAuthenticated,
-  async (req, res) => {
-    try {
-      const queueSize = await matchmakingService.removeFromQueue(req.user.id);
-      res.json({ queueSize });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to leave matchmaking queue' });
-    }
-  }
-];
-
-exports.getMatchmakingStatus = [
-  ensureAuthenticated,
-  async (req, res) => {
-    try {
-      // Clean disconnected users before reporting queue size
-      await matchmakingService.cleanupStaleEntries();
-
-      const [queueSize, match] = await Promise.all([
-        matchmakingService.getQueueSize(),
-        matchmakingService.getMatchForUser(req.user.id),
-      ]);
-
-      res.json({ queueSize, match });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: 'Failed to get matchmaking status' });
-    }
-  }
-];
-
-exports.resetMatchmakingQueue = [
-  async (req, res) => {
-    try {
-      await matchmakingService.resetQueue();
-      res.json({ message: "✅ Queue cleared" });
-    } catch (err) {
-      console.error(err);
-      res.status(500).json({ error: "Failed to reset matchmaking queue" });
-    }
-  }
-];
+});
