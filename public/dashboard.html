@@ -198,7 +198,12 @@
 
     // --- SOCKET SETUP ---
     function setupSocket() {
-      socket = io('', { query: { userId: currentUser.id } });
+      socket = io('', {
+    query: {
+        userId: currentUser.id,
+        displayName: currentUser.displayName
+    }
+});
 
       socket.on('connect', () => {
         console.log('Connected to matchmaking socket');
@@ -209,13 +214,10 @@
       });
 
       socket.on('matchCreated', (data) => {
-        if (data.players.some(p => p.id === currentUser.id)) {
-          showMatchFound(data.players);
-          toggleQueueBtn.disabled = false;
-          toggleQueueBtn.textContent = 'Start Matchmaking';
-          inQueue = false;
-        }
-      });
+    if (data.players.some(p => p.id === currentUser.id)) {
+        window.location.href = `/lobby/lobby.html?lobbyId=${data.lobbyId}`;
+    }
+});
 
       socket.on('disconnect', () => {
         console.log('Disconnected from matchmaking socket');

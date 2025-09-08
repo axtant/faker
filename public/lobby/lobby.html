@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Lobby - Matchmaking Veto</title>
+    <link rel="stylesheet" href="../styles/lobby.css">
+    <script src="/socket.io/socket.io.js"></script>
+</head>
+<body>
+    <div class="lobby-container">
+        <h1>Match Lobby - Veto Phase</h1>
+        <div id="teams">
+            <div class="team" id="teamA">
+                <h2>Team A</h2>
+                <ul id="teamAPlayers"></ul>
+            </div>
+            <div class="team" id="teamB">
+                <h2>Team B</h2>
+                <ul id="teamBPlayers"></ul>
+            </div>
+        </div>
+
+        <div class="map-pool">
+            <h3>Map Pool</h3>
+            <div id="mapPool"></div>
+        </div>
+
+        <p id="status">Loading lobby...</p>
+        <p id="finalMap" style="display: none;"><strong>Final Map Selected: </strong><span id="selectedMap"></span></p>
+    </div>
+
+    <script>
+        let socket = io('', {
+            query: {
+                userId: new URLSearchParams(window.location.search).get('userId') || 'testUser',
+                displayName: new URLSearchParams(window.location.search).get('displayName') || 'TestUser'
+            }
+        });
+        let lobbyId = new URLSearchParams(window.location.search).get('lobbyId');
+        let currentUserId = new URLSearchParams(window.location.search).get('userId');
+
+        socket.emit('joinLobby', lobbyId);
+
+        socket.on('lobbyUpdated', (lobby) => {
+            document.getElementById('teamAPlayers').innerHTML = lobby.teams.A.map(p => 
+                `<li>\${p.displayName} \${lobby.captains.find(c => c.id === p.id) ? '(Captain)' : ''}</li>`
+            ).join('');
+
+            document.getElementById('teamBPlayers').innerHTML = lobby.teams.B.map(p => 
+                `<li>\${p.displayName} \${lobby.captains.find(c => c.id === p.id) ? '(Captain)' : ''}</li>`
+            ).join('');
+
+            const mapPoolEl = document.getElementById('mapPool');
+            mapPoolEl.innerHTML = lobby.mapPool.map(map => {
+                const isCaptainTurn = lobby.captains[lobby.currentTurnIndex % 2].id === currentUserId;
+                return `<button 
+                    class="map-btn" 
+                    \${isCaptainTurn ? '' : 'disabled'} 
+                    onclick="banMap('\${map}')">\${map}</button>`;
+            }).join('');
+
+            document.getElementById('status').textContent = lobby.lobbyCompleted ?
+                'Veto Complete! Final Map selected.' :
+                `Waiting for \${lobby.captains[lobby.currentTurnIndex % 2].displayName} to ban a map...`;
+
+            if (lobby.lobbyCompleted) {
+                document.getElementById('selectedMap').textContent = lobby.finalMap;
+                document.getElementById('finalMap').style.display = 'block';
+            }
+        });
+
+        function banMap(map) {
+            socket.emit('lobbyAction', { lobbyId, action: 'ban', map });
+        }
+    </script>
+</body>
+</html>

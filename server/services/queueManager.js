@@ -1,7 +1,8 @@
 const LOBBY_SIZE = parseInt(process.env.LOBBY_SIZE) || 2;
-
 const queue = new Map(); // userId => displayName
-const lobbies = [];      // stores completed lobbies
+const lobbies = new Map(); // lobbyId => lobby object
+
+const lobbyManager = require('../lobby/lobbyManager');
 
 module.exports = {
   addToQueue(userId, io, displayName) {
@@ -15,16 +16,17 @@ module.exports = {
       const players = Array.from(queue.entries()).slice(0, LOBBY_SIZE);
       players.forEach(([id]) => queue.delete(id));
 
-      lobbies.push({ players, createdAt: Date.now() });
+      const playerIds = players.map(([id, name]) => ({ id, displayName: name }));
+      const lobbyId = lobbyManager.createLobby(playerIds);
 
-      io.emit('matchCreated', {
-        players: players.map(([id, name]) => ({ id, displayName: name })),
-      });
+      lobbies.set(lobbyId, lobbyManager.getLobby(lobbyId));
+
+      io.emit('matchCreated', { lobbyId, players: playerIds });
 
       return {
         queueSize: queue.size,
         lobbyFormed: true,
-        newLobby: players.map(([id, name]) => ({ id, displayName: name })),
+        newLobby: { lobbyId, players: playerIds },
       };
     }
 
@@ -52,5 +54,9 @@ module.exports = {
     queue.clear();
     io.emit('queueUpdated', this.getState());
     return { queueSize: 0, players: [] };
+  },
+
+  getLobby(lobbyId) {
+    return lobbies.get(lobbyId);
   },
 };

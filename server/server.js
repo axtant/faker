@@ -12,13 +12,14 @@ const authController = require('./controllers/authController');
 const userController = require('./controllers/userController');
 const ensureAuthenticated = require('./middleware/ensureAuthenticated');
 const socketHandlers = require('./sockets/socketHandlers');
+const lobbySocketHandler = require('./lobby/lobbySocketHandler');
 
 const queueManager = require('./services/queueManager');
 
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
-
+lobbySocketHandler(io);
 // --- SESSION SETUP ---
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',

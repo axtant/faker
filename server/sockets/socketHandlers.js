@@ -8,7 +8,8 @@ module.exports = (socket, io, queueManager) => {
   }
 
   const userId = user.id;
-  console.log(`✅ User ${userId} connected with socket ${socket.id}`);
+  const displayName = user.displayName || 'Anonymous';
+  console.log(`✅ User ${displayName} connected with socket ${socket.id}`);
 
   // Send current queue state
   socket.emit('queueUpdated', queueManager.getState());
