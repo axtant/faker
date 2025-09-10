@@ -19,7 +19,6 @@ const queueManager = require('./services/queueManager');
 const app = express();
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: '*' } });
-lobbySocketHandler(io);
 // --- SESSION SETUP ---
 const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',
@@ -43,6 +42,9 @@ io.use((socket, next) => passport.session()(socket.request, {}, next));
 
 // --- SOCKET HANDLERS ---
 io.on('connection', (socket) => socketHandlers(socket, io, queueManager));
+
+// Register lobby socket handlers AFTER session/passport are attached
+lobbySocketHandler(io);
 
 // --- ROUTES ---
 app.get('/auth/steam', authController.getSteamAuth);

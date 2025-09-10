@@ -1,6 +1,6 @@
 // matchmaking.js
 export function setupMatchmaking(currentUser) {
-  const socket = io('', { query: { userId: currentUser.id } });
+  const socket = io();
   const joinBtn = document.getElementById("join-queue-btn");
   const leaveBtn = document.getElementById("leave-queue-btn");
   const queueSizeEl = document.getElementById("queue-size");
@@ -13,11 +13,15 @@ export function setupMatchmaking(currentUser) {
     console.log("Queue updated:", players);
   });
 
-  socket.on("matchCreated", ({ players }) => {
-    matchStatusEl.textContent = `✅ Match created: ${players.join(", ")}`;
+  socket.on("matchCreated", ({ lobbyId, players }) => {
+    matchStatusEl.textContent = `✅ Match created`;
     inQueue = false;
     joinBtn.disabled = false;
     leaveBtn.disabled = true;
+    if (lobbyId) {
+      const dn = encodeURIComponent(currentUser.displayName || '');
+      window.location.href = `/lobby/lobby.html?lobbyId=${lobbyId}&userId=${currentUser.id}&displayName=${dn}`;
+    }
   });
 
   joinBtn.addEventListener("click", async () => {

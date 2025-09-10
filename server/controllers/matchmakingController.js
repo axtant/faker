@@ -1,8 +1,9 @@
 // controllers/matchmakingController.js
 module.exports = (io, queueManager) => ({
   startMatchmaking: (req, res) => {
-    const userId = req.user.id; // only pass userId
-    const result = queueManager.addToQueue(userId, io);
+    const userId = req.user.id;
+    const displayName = req.user.displayName;
+    const result = queueManager.addToQueue(userId, io, displayName);
     res.json(result);
   },
 

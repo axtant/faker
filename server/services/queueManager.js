@@ -16,7 +16,7 @@ module.exports = {
       const players = Array.from(queue.entries()).slice(0, LOBBY_SIZE);
       players.forEach(([id]) => queue.delete(id));
 
-      const playerIds = players.map(([id, name]) => ({ id, displayName: name }));
+      const playerIds = players.map(([id, name]) => ({ id: String(id), displayName: name }));
       const lobbyId = lobbyManager.createLobby(playerIds);
 
       lobbies.set(lobbyId, lobbyManager.getLobby(lobbyId));

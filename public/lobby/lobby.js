@@ -45,16 +45,14 @@ function renderLobby() {
     statusEl.appendChild(header);
 
     const info = document.createElement('p');
-    info.textContent = `Current Turn: ${lobbyState.turnType.toUpperCase()} by ${currentCaptain.displayName}`;
+    info.textContent = `Current Turn: BAN by ${currentCaptain.displayName}`;
     statusEl.appendChild(info);
 
     const bans = document.createElement('p');
     bans.textContent = `Bans: ${lobbyState.bans.join(', ')}`;
     statusEl.appendChild(bans);
 
-    const picks = document.createElement('p');
-    picks.textContent = `Picks: ${lobbyState.picks.join(', ')}`;
-    statusEl.appendChild(picks);
+    // Picks not implemented in server yet
 
     const finalMap = document.createElement('p');
     finalMap.textContent = lobbyState.lobbyCompleted

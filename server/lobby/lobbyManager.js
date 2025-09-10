@@ -2,13 +2,15 @@ const lobbies = new Map();
 const MAP_POOL = ['MapA', 'MapB', 'MapC', 'MapD', 'MapE'];
 
 function createLobby(players) {
+    // normalize ids as strings to avoid mismatches
+    const normalizedPlayers = players.map(p => ({ id: String(p.id), displayName: p.displayName }));
     const lobbyId = Date.now().toString();
 
     // Assign first 2 players as captains
-    const captains = [players[0], players[1]];
+    const captains = [normalizedPlayers[0], normalizedPlayers[1]];
 
     // Remaining players
-    const remainingPlayers = players.slice(2);
+    const remainingPlayers = normalizedPlayers.slice(2);
 
     const teams = { A: [captains[0]], B: [captains[1]] };
 
@@ -19,7 +21,7 @@ function createLobby(players) {
     });
 
     lobbies.set(lobbyId, {
-        players,
+        players: normalizedPlayers,
         captains,
         teams,
         mapPool: [...MAP_POOL],
@@ -41,7 +43,7 @@ function performBan(lobbyId, captainId, map) {
     if (!lobby || lobby.lobbyCompleted) return lobby;
 
     const currentCaptain = lobby.captains[lobby.currentTurnIndex % 2];
-    if (currentCaptain.id !== captainId) throw new Error('Not your turn');
+    if (String(currentCaptain.id) !== String(captainId)) throw new Error('Not your turn');
 
     if (!lobby.mapPool.includes(map)) throw new Error('Invalid map');
 

@@ -2,7 +2,9 @@ const lobbyManager = require('./lobbyManager');
 
 module.exports = function(io) {
     io.on('connection', (socket) => {
-        const { userId, displayName } = socket.handshake.query;
+        const sessionUser = socket.request && socket.request.user;
+        const userId = sessionUser?.id ? String(sessionUser.id) : String(socket.handshake.query.userId || '');
+        const displayName = sessionUser?.displayName || socket.handshake.query.displayName || 'Anonymous';
         if (!userId) {
             console.log(`❌ Unauthorized socket connection: ${socket.id}`);
             socket.disconnect();
@@ -26,7 +28,7 @@ module.exports = function(io) {
         socket.on('lobbyAction', ({ lobbyId, action, map }) => {
             try {
                 if (action === 'ban') {
-                    const lobby = lobbyManager.performBan(lobbyId, userId, map);
+                    const lobby = lobbyManager.performBan(lobbyId, String(userId), map);
                     io.to(lobbyId).emit('lobbyUpdated', lobby);
                 } else {
                     socket.emit('lobbyError', 'Invalid action');
