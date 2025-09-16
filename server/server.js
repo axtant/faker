@@ -8,6 +8,7 @@ const http = require('http');
 const { Server } = require('socket.io');
 
 const passport = require('./services/steamAuthService');
+const testGuestAuth = require('./middleware/testGuestAuth');
 const authController = require('./controllers/authController');
 const userController = require('./controllers/userController');
 const ensureAuthenticated = require('./middleware/ensureAuthenticated');
@@ -32,11 +33,14 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, '..', 'public')));
 app.use(sessionMiddleware);
+// In test mode, pre-seed a guest user into the session before passport.session
+app.use(testGuestAuth.http);
 app.use(passport.initialize());
 app.use(passport.session());
 
 // --- SHARE SESSION + PASSPORT WITH SOCKET.IO ---
 io.use((socket, next) => sessionMiddleware(socket.request, {}, next));
+io.use((socket, next) => testGuestAuth.socket(socket, next));
 io.use((socket, next) => passport.initialize()(socket.request, {}, next));
 io.use((socket, next) => passport.session()(socket.request, {}, next));
 

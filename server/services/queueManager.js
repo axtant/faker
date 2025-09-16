@@ -1,12 +1,22 @@
 const LOBBY_SIZE = parseInt(process.env.LOBBY_SIZE) || 2;
 const queue = new Map(); // userId => displayName
 const lobbies = new Map(); // lobbyId => lobby object
+const userIdToLobbyId = new Map(); // userId => lobbyId (if currently in a lobby)
 
 const lobbyManager = require('../lobby/lobbyManager');
+const cs2Server = require('./cs2ServerService');
 
 module.exports = {
   addToQueue(userId, io, displayName) {
-    queue.set(userId, displayName);
+    // Prevent users already in a lobby from queueing again
+    if (userIdToLobbyId.has(String(userId))) {
+      return { queueSize: queue.size, lobbyFormed: false, error: 'User already in a lobby', inLobby: true };
+    }
+
+    // Prevent duplicate queue entries
+    if (!queue.has(userId)) {
+      queue.set(userId, displayName);
+    }
 
     // broadcast current queue state
     io.emit('queueUpdated', this.getState());
@@ -21,7 +31,21 @@ module.exports = {
 
       lobbies.set(lobbyId, lobbyManager.getLobby(lobbyId));
 
+      // Mark users as assigned to this lobby
+      playerIds.forEach(p => userIdToLobbyId.set(String(p.id), lobbyId));
+
       io.emit('matchCreated', { lobbyId, players: playerIds });
+
+      // Start CS2 instance early to hide startup latency
+      // Do not await to avoid blocking queue flow; log result
+      (async () => {
+        try {
+          await cs2Server.startInstance();
+          console.log(`CS2 instance started for lobby ${lobbyId}`);
+        } catch (err) {
+          console.error(`Failed to start CS2 instance for lobby ${lobbyId}:`, err.message);
+        }
+      })();
 
       return {
         queueSize: queue.size,
@@ -47,7 +71,11 @@ module.exports = {
   },
 
   getState() {
-    return { queueSize: queue.size, players: Array.from(queue.entries()).map(([id, name]) => ({ id, displayName: name })) };
+    return {
+      queueSize: queue.size,
+      players: Array.from(queue.entries()).map(([id, name]) => ({ id, displayName: name })),
+      lobbies: Array.from(lobbies.keys()).length
+    };
   },
 
   resetQueue(io) {
@@ -58,5 +86,20 @@ module.exports = {
 
   getLobby(lobbyId) {
     return lobbies.get(lobbyId);
+  },
+
+  isUserInLobby(userId) {
+    return userIdToLobbyId.has(String(userId));
+  },
+
+  // Optional: call this when a lobby ends to allow users to re-queue
+  releaseLobby(lobbyId, io) {
+    const lobby = lobbies.get(lobbyId);
+    if (!lobby) return;
+    if (Array.isArray(lobby.players)) {
+      lobby.players.forEach(p => userIdToLobbyId.delete(String(p.id)));
+    }
+    lobbies.delete(lobbyId);
+    io.emit('lobbyClosed', { lobbyId });
   },
 };

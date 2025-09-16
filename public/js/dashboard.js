@@ -1,5 +1,4 @@
 import { apiGet, apiPost } from './api.js';
-import { loadFriends } from './friends.js';
 import { setupMatchmaking } from './matchmaking.js';
 
 let currentUser = null;
@@ -8,7 +7,7 @@ async function loadUser() {
   try {
     currentUser = await apiGet('/api/user');
     renderProfile(currentUser);
-    renderFriendsAccess(currentUser);
+    
     document.getElementById('loadingSpinner').style.display = 'none';
     document.getElementById('dashboardContent').style.display = 'block';
   } catch {
@@ -22,9 +21,7 @@ function renderProfile(user) {
   document.getElementById('steamId').textContent = `Steam ID: ${user.steamId}`;
 }
 
-function renderFriendsAccess(user) {
-  if (user.friendsListAccess) loadFriends();
-}
+ 
 
 document.getElementById('logoutBtn').addEventListener('click', async () => {
   await apiPost('/logout');

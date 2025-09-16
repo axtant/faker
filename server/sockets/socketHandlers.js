@@ -16,7 +16,10 @@ module.exports = (socket, io, queueManager) => {
 
   // Join queue
   socket.on('joinQueue', () => {
-    queueManager.addToQueue(userId, io, user.displayName);
+    const result = queueManager.addToQueue(userId, io, user.displayName);
+    if (result && result.error) {
+      socket.emit('queueError', result.error);
+    }
   });
 
   // Leave queue

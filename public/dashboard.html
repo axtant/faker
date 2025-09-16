@@ -3,17 +3,23 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dashboard - Steam Authentication App</title>
+  <title>Dashboard - CS2 Matchmaking</title>
   <link rel="stylesheet" href="styles/styles.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
   <div class="container">
     <header class="header">
       <div class="header-content">
-        <h1 class="title">Steam Dashboard</h1>
+        <div>
+          <h1 class="title">CS2 Matchmaking</h1>
+          <p class="subtitle">Ready to dominate the battlefield?</p>
+        </div>
         <div class="header-actions">
-          <button id="logoutBtn" class="logout-btn">Logout</button>
+          <button id="logoutBtn" class="btn btn-danger">Logout</button>
         </div>
       </div>
     </header>
@@ -43,31 +49,16 @@
           </div>
         </div>
 
-        <!-- Friends Access Card -->
-        <div class="friends-card">
-          <div class="friends-header">
-            <h3 class="friends-title">Friends List Access</h3>
-            <div id="friendsAccessStatus" class="access-status">
-              <span class="status-badge denied">Access Denied</span>
-            </div>
-          </div>
-          <div id="friendsAccessContent"></div>
-        </div>
-
-        <!-- Friends List Section -->
-        <div class="friends-list-section" id="friendsListSection" style="display: none;">
-          <h3 class="section-title">Your Steam Friends</h3>
-          <div class="friends-grid" id="friendsGrid"></div>
-        </div>
-
         <!-- Matchmaking Section -->
         <div class="matchmaking-card">
-          <h3>Matchmaking</h3>
-          <p>Players in queue: <span id="queueSize">0</span></p>
-          <button id="toggleQueueBtn">Start Matchmaking</button>
+          <h3>🎯 Quick Match</h3>
+          <p style="color: var(--text-secondary); margin-bottom: 20px;">
+            Players in queue: <span id="queueSize" style="color: var(--neon-cyan); font-weight: 700;">0</span>
+          </p>
+          <button id="toggleQueueBtn" class="btn btn-primary">Start Matchmaking</button>
           <div id="matchFound" class="match-found" style="display:none;">
-            <p>Match found! Players:</p>
-            <ul id="matchPlayersList"></ul>
+            <p>🎉 Match found! Players:</p>
+            <ul id="matchPlayersList" style="list-style: none; padding: 0; margin-top: 12px;"></ul>
           </div>
         </div>
       </div>
@@ -75,7 +66,7 @@
 
     <footer class="footer">
       <div class="footer-content">
-        <p>&copy; 2024 Steam Authentication App. Your privacy is protected.</p>
+        <p>&copy; 2024 CS2 Matchmaking Platform. Your privacy is protected.</p>
       </div>
     </footer>
   </div>
@@ -89,10 +80,6 @@
     const queueSizeEl = document.getElementById('queueSize');
     const matchFoundEl = document.getElementById('matchFound');
     const matchPlayersList = document.getElementById('matchPlayersList');
-    const friendsAccessStatus = document.getElementById('friendsAccessStatus');
-    const friendsAccessContent = document.getElementById('friendsAccessContent');
-    const friendsListSection = document.getElementById('friendsListSection');
-    const friendsGrid = document.getElementById('friendsGrid');
 
     // --- USER PROFILE ---
     async function loadUserProfile() {
@@ -107,7 +94,6 @@
         }
         currentUser = await response.json();
         displayUserProfile(currentUser);
-        displayFriendsAccess(currentUser);
         document.getElementById('loadingSpinner').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
       } catch (error) {
@@ -129,81 +115,14 @@
       }
     }
 
-    // --- FRIENDS ACCESS ---
-    function displayFriendsAccess(user) {
-      if (user.friendsListAccess) {
-        friendsAccessStatus.innerHTML = '<span class="status-badge granted">Access Granted</span>';
-        friendsAccessContent.innerHTML = `
-          <div class="access-granted">
-            <p class="access-description">
-              ✓ You have granted access to your Steam friends list.
-              We can now display your friends and their information.
-            </p>
-            <button id="refreshFriendsBtn" class="refresh-btn">Refresh Friends List</button>
-          </div>
-        `;
-        loadFriendsList();
-      } else {
-        friendsAccessStatus.innerHTML = '<span class="status-badge denied">Access Denied</span>';
-        friendsAccessContent.innerHTML = `
-          <div class="access-request">
-            <p class="access-description">
-              To display your Steam friends list, we need your permission to access this information.
-            </p>
-            <div class="permission-info">
-              <h4>What we'll access:</h4>
-              <ul>
-                <li>Your Steam friends list</li>
-                <li>Basic profile information of your friends</li>
-                <li>Friends since dates</li>
-              </ul>
-            </div>
-            <button id="grantAccessBtn" class="grant-access-btn">Grant Friends List Access</button>
-          </div>
-        `;
-      }
-    }
-
-    async function loadFriendsList() {
-      try {
-        const response = await fetch('/api/friends');
-        if (response.ok) {
-          const friends = await response.json();
-          displayFriendsList(friends);
-          friendsListSection.style.display = 'block';
-        } else {
-          friendsListSection.style.display = 'none';
-        }
-      } catch (error) {
-        console.error('Error loading friends list:', error);
-      }
-    }
-
-    function displayFriendsList(friends) {
-      if (friends.length === 0) {
-        friendsGrid.innerHTML = '<p class="no-friends">No friends found or friends list is private.</p>';
-        return;
-      }
-      friendsGrid.innerHTML = friends.map(friend => `
-        <div class="friend-card">
-          <img src="${friend.avatarUrl || '/default-avatar.png'}" alt="${friend.displayName}" class="friend-avatar" />
-          <div class="friend-info">
-            <h4 class="friend-name">${friend.displayName}</h4>
-            ${friend.friendSince ? `<p class="friend-since">Friends since ${new Date(friend.friendSince).toLocaleDateString()}</p>` : ''}
-            <a href="${friend.profileUrl}" target="_blank" class="friend-profile-link">View Profile</a>
-          </div>
-        </div>
-      `).join('');
-    }
-
     // --- SOCKET SETUP ---
     function setupSocket() {
       socket = io('', {
-    query: {
-        userId: currentUser.id,
-        displayName: currentUser.displayName
-    }
-});
+        query: {
+          userId: currentUser.id,
+          displayName: currentUser.displayName
+        }
+      });
 
       socket.on('connect', () => {
         console.log('Connected to matchmaking socket');
@@ -214,10 +133,10 @@
       });
 
       socket.on('matchCreated', (data) => {
-    if (data.players.some(p => p.id === currentUser.id)) {
-        window.location.href = `/lobby/lobby.html?lobbyId=${data.lobbyId}`;
-    }
-});
+        if (data.players.some(p => p.id === currentUser.id)) {
+          window.location.href = `/lobby/lobby.html?lobbyId=${data.lobbyId}`;
+        }
+      });
 
       socket.on('disconnect', () => {
         console.log('Disconnected from matchmaking socket');
@@ -225,7 +144,7 @@
     }
 
     function showMatchFound(players) {
-      matchPlayersList.innerHTML = players.map(p => `<li>${p.displayName}</li>`).join('');
+      matchPlayersList.innerHTML = players.map(p => `<li style="padding: 4px 0; color: var(--text-primary);">👤 ${p.displayName}</li>`).join('');
       matchFoundEl.style.display = 'block';
     }
 
@@ -260,36 +179,6 @@
         }
       }
       toggleQueueBtn.disabled = false;
-    });
-
-    // --- BUTTON HANDLERS ---
-    document.addEventListener('click', async (e) => {
-      if (e.target.id === 'grantAccessBtn') {
-        e.target.disabled = true;
-        e.target.textContent = 'Granting Access...';
-        try {
-          const res = await fetch('/api/grant-friends-access', { method: 'POST' });
-          if (!res.ok) throw new Error('Failed to grant access');
-          await loadUserProfile();
-        } catch (err) {
-          alert('Failed to grant friends access.');
-          e.target.disabled = false;
-          e.target.textContent = 'Grant Friends List Access';
-        }
-      }
-      if (e.target.id === 'refreshFriendsBtn') {
-        e.target.disabled = true;
-        e.target.textContent = 'Refreshing...';
-        try {
-          const res = await fetch('/api/grant-friends-access', { method: 'POST' });
-          if (res.ok) await loadFriendsList();
-        } catch {
-          alert('Failed to refresh friends list.');
-        } finally {
-          e.target.disabled = false;
-          e.target.textContent = 'Refresh Friends List';
-        }
-      }
     });
 
     document.getElementById('logoutBtn').addEventListener('click', async () => {

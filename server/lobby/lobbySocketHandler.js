@@ -1,4 +1,5 @@
 const lobbyManager = require('./lobbyManager');
+const cs2Server = require('../services/cs2ServerService');
 
 module.exports = function(io) {
     io.on('connection', (socket) => {
@@ -30,6 +31,19 @@ module.exports = function(io) {
                 if (action === 'ban') {
                     const lobby = lobbyManager.performBan(lobbyId, String(userId), map);
                     io.to(lobbyId).emit('lobbyUpdated', lobby);
+
+                    // If veto completed, change level quickly without restart
+                    if (lobby && lobby.lobbyCompleted && lobby.finalMap) {
+                        (async () => {
+                            try {
+                                await cs2Server.changeLevel(lobby.finalMap);
+                                io.to(lobbyId).emit('serverStatus', { status: 'map_changed', map: lobby.finalMap });
+                            } catch (err) {
+                                console.error('Failed to change level:', err.message);
+                                io.to(lobbyId).emit('serverStatus', { status: 'error', message: err.message });
+                            }
+                        })();
+                    }
                 } else {
                     socket.emit('lobbyError', 'Invalid action');
                 }

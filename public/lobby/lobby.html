@@ -3,8 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Lobby - Matchmaking Veto</title>
+    <title>Lobby - CS2 Matchmaking</title>
     <link rel="stylesheet" href="../styles/lobby.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="/socket.io/socket.io.js"></script>
 </head>
 <body>
@@ -27,12 +30,12 @@
 
             <main class="veto-center">
                 <div class="veto-flow">
-                    <div class="veto-step active" id="vetoStep">Veto Phase</div>
+                    <div class="veto-step active" id="vetoStep">🎯 Veto Phase</div>
                 </div>
+                <div class="veto-timer" id="vetoTimerCenter">00:30</div>
                 <div class="map-grid" id="mapPool"></div>
-                <div class="bans" id="bans"></div>
                 <div class="final-map hidden" id="finalMap">
-                    <span class="label">Final Map</span>
+                    <span class="label">🏆 Final Map</span>
                     <span class="value" id="selectedMap"></span>
                 </div>
             </main>
@@ -58,6 +61,9 @@
         const lobbyId = params.get('lobbyId');
         let currentUserId = params.get('userId');
         let lastLobby = null;
+        let lastTurnIndex = null;
+        let turnDeadline = null;
+        let timerInterval = null;
 
         if (!currentUserId) {
             fetch('/api/user')
@@ -92,27 +98,38 @@
             // Veto / Turn state
             const currentCaptain = lobby.captains[lobby.currentTurnIndex % 2];
             const myTurn = currentCaptain && String(currentCaptain.id) === String(currentUserId);
-            document.getElementById('turnIndicator').textContent = lobby.lobbyCompleted
-                ? 'Veto complete'
-                : `${currentCaptain?.displayName || ''} is banning` + (myTurn ? ' (Your turn)' : '');
+            
+            // Timer lifecycle per turn
+            if (!lobby.lobbyCompleted && lastTurnIndex !== lobby.currentTurnIndex) {
+                lastTurnIndex = lobby.currentTurnIndex;
+                turnDeadline = Date.now() + 30000; // 30 seconds
+                if (timerInterval) clearInterval(timerInterval);
+                timerInterval = setInterval(updateTimerUI, 250);
+                updateTimerUI();
+            }
+            if (lobby.lobbyCompleted && timerInterval) {
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+            
+            // Header indicator text will be set in updateTimerUI, fallback here if needed
+            if (lobby.lobbyCompleted) {
+                document.getElementById('turnIndicator').textContent = '✅ Veto complete';
+                document.getElementById('vetoTimerCenter').textContent = '';
+            }
 
             // Map grid
             const mapPoolEl = document.getElementById('mapPool');
             mapPoolEl.innerHTML = '';
-            lobby.mapPool.forEach(map => {
+            const maps = Array.isArray(lobby.mapPool) ? lobby.mapPool : [];
+            maps.forEach(map => {
                 const btn = document.createElement('button');
                 btn.className = 'map-card' + (myTurn ? ' actionable' : '');
-                btn.textContent = map;
+                btn.textContent = `🗺️ ${map}`;
                 btn.disabled = !myTurn || lobby.lobbyCompleted;
                 btn.onclick = () => socket.emit('lobbyAction', { lobbyId, action: 'ban', map });
                 mapPoolEl.appendChild(btn);
             });
-
-            // Bans list
-            const bansEl = document.getElementById('bans');
-            bansEl.innerHTML = lobby.bans.map((m, i) =>
-                `<span class="ban-chip ${i % 2 === 0 ? 'a' : 'b'}">Ban ${i + 1}: ${m}</span>`
-            ).join('');
 
             // Final map
             const finalEl = document.getElementById('finalMap');
@@ -122,6 +139,42 @@
             } else {
                 finalEl.classList.add('hidden');
             }
+        }
+
+        function updateTimerUI() {
+            if (!turnDeadline) return;
+            const now = Date.now();
+            const msRemaining = Math.max(0, turnDeadline - now);
+            const seconds = Math.ceil(msRemaining / 1000);
+            const padded = String(seconds).padStart(2, '0');
+            const currentCaptain = lastLobby?.captains[lastLobby?.currentTurnIndex % 2];
+            const myTurn = currentCaptain && String(currentCaptain.id) === String(currentUserId);
+            const headerText = lastLobby?.lobbyCompleted
+                ? '✅ Veto complete'
+                : `🎯 ${currentCaptain?.displayName || ''} is banning` + (myTurn ? ' (Your turn)' : '') + ` • 00:${padded}`;
+            document.getElementById('turnIndicator').textContent = headerText;
+            const centerEl = document.getElementById('vetoTimerCenter');
+            if (centerEl) centerEl.textContent = lastLobby?.lobbyCompleted ? '' : `00:${padded}`;
+            if (msRemaining <= 0 && timerInterval) {
+                // Auto-ban if it's our turn and lobby still active
+                autoBanIfNeeded();
+                clearInterval(timerInterval);
+                timerInterval = null;
+            }
+        }
+
+        function autoBanIfNeeded() {
+            if (!lastLobby || lastLobby.lobbyCompleted) return;
+            const currentCaptain = lastLobby.captains[lastLobby.currentTurnIndex % 2];
+            const myTurn = currentCaptain && String(currentCaptain.id) === String(currentUserId);
+            if (!myTurn) return;
+            const available = Array.isArray(lastLobby.mapPool) && lastLobby.mapPool.length
+                ? lastLobby.mapPool.slice()
+                : [];
+            if (!available.length) return;
+            const mapToBan = available[0];
+            socket.emit('lobbyAction', { lobbyId, action: 'ban', map: mapToBan });
+            turnDeadline = null;
         }
 
         socket.emit('joinLobby', lobbyId);

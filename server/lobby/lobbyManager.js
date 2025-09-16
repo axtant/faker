@@ -1,5 +1,5 @@
 const lobbies = new Map();
-const MAP_POOL = ['MapA', 'MapB', 'MapC', 'MapD', 'MapE'];
+const MAP_POOL = ['Inferno', 'Mirage', 'Nuke', 'Overpass', 'Vertigo', 'Ancient', 'Dust II'];
 
 function createLobby(players) {
     // normalize ids as strings to avoid mismatches
@@ -62,15 +62,5 @@ function performBan(lobbyId, captainId, map) {
 
     return lobby;
 }
-
-// ==================== Test Lobby ====================
-// if (process.env.NODE_ENV !== 'production') {
-//     const testPlayers = Array.from({ length: 10 }, (_, i) => ({
-//         id: (i + 1).toString(),
-//         displayName: `TestPlayer${i + 1}`
-//     }));
-//     const testLobbyId = createLobby(testPlayers);
-//     console.log('Test Lobby Created with 10 Players. Lobby ID:', testLobbyId);
-// }
 
 module.exports = { createLobby, getLobby, performBan };
