@@ -37,13 +37,20 @@ module.exports = {
       io.emit('matchCreated', { lobbyId, players: playerIds });
 
       // Start CS2 instance early to hide startup latency
+      // Automatically finds a free instance and assigns it to this lobby
       // Do not await to avoid blocking queue flow; log result
       (async () => {
         try {
-          await cs2Server.startInstance();
-          console.log(`CS2 instance started for lobby ${lobbyId}`);
+          const result = await cs2Server.startInstance(null, null, lobbyId);
+          console.log(`✅ CS2 instance ${result.instance} started for lobby ${lobbyId}`);
         } catch (err) {
-          console.error(`Failed to start CS2 instance for lobby ${lobbyId}:`, err.message);
+          const errorMsg = err.message || err.toString() || 'Unknown error';
+          const errorCode = err.code || 'NO_CODE';
+          console.error(`❌ Failed to start CS2 instance for lobby ${lobbyId}:`, errorMsg);
+          console.error(`   Error code: ${errorCode}`);
+          if (err.stack) {
+            console.error(`   Stack: ${err.stack}`);
+          }
         }
       })();
 
@@ -99,6 +106,21 @@ module.exports = {
     if (Array.isArray(lobby.players)) {
       lobby.players.forEach(p => userIdToLobbyId.delete(String(p.id)));
     }
+    
+    // Release CS2 instance assignment (if any)
+    // Find which instance was assigned to this lobby and release it
+    const allStatuses = cs2Server.getAllInstanceStatuses().then(statuses => {
+      for (const status of statuses) {
+        if (status.lobbyId === lobbyId) {
+          cs2Server.releaseInstance(status.instance, lobbyId);
+          console.log(`Released CS2 instance ${status.instance} from lobby ${lobbyId}`);
+          break;
+        }
+      }
+    }).catch(err => {
+      console.error(`Error releasing instance for lobby ${lobbyId}:`, err.message);
+    });
+    
     lobbies.delete(lobbyId);
     io.emit('lobbyClosed', { lobbyId });
   },
