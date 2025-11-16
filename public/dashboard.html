@@ -12,17 +12,6 @@
 </head>
 <body>
   <div class="container">
-    <header class="header">
-      <div class="header-content">
-        <div>
-          <h1 class="title">CS2 Matchmaking</h1>
-          <p class="subtitle">Ready to dominate the battlefield?</p>
-        </div>
-        <div class="header-actions">
-          <button id="logoutBtn" class="btn btn-danger">Logout</button>
-        </div>
-      </div>
-    </header>
 
     <main class="main-content">
       <div class="loading-spinner" id="loadingSpinner">
@@ -31,42 +20,25 @@
       </div>
 
       <div class="dashboard-content" id="dashboardContent" style="display: none;">
-        <!-- User Profile Card -->
-        <div class="profile-card">
-          <div class="profile-header">
-            <img id="userAvatar" class="avatar" src="" alt="User Avatar" />
-            <div class="profile-info">
-              <h2 id="displayName" class="profile-name"></h2>
-              <p id="realName" class="real-name"></p>
-              <div class="profile-meta">
-                <span id="steamId" class="steam-id"></span>
-                <span id="lastLogin" class="last-login"></span>
-              </div>
+        <div class="dashboard-grid">
+          <aside class="sidebar">
+            <nav class="sidebar-nav" id="sidebarNav"></nav>
+            <div class="sidebar-footer">
+              <a href="#" id="settingsLink" class="btn">User Settings</a>
+              <button id="logoutBtn2" class="btn btn-danger">Logout</button>
             </div>
-          </div>
-          <div class="profile-actions">
-            <a id="profileLink" href="#" target="_blank" class="view-profile-btn">View Steam Profile</a>
-          </div>
-        </div>
+          </aside>
 
-        <!-- Matchmaking Section -->
-        <div class="matchmaking-card">
-          <h3>🎯 Quick Match</h3>
-          <p style="color: var(--text-secondary); margin-bottom: 20px;">
-            Players in queue: <span id="queueSize" style="color: var(--neon-cyan); font-weight: 700;">0</span>
-          </p>
-          <button id="toggleQueueBtn" class="btn btn-primary">Start Matchmaking</button>
-          <div id="matchFound" class="match-found" style="display:none;">
-            <p>🎉 Match found! Players:</p>
-            <ul id="matchPlayersList" style="list-style: none; padding: 0; margin-top: 12px;"></ul>
-          </div>
+          <section class="main-panel">
+            <div id="mainViewRoot"></div>
+          </section>
         </div>
       </div>
     </main>
 
     <footer class="footer">
       <div class="footer-content">
-        <p>&copy; 2024 CS2 Matchmaking Platform. Your privacy is protected.</p>
+        <p>&copy; 2025  ƎԀ⅄Hᄅ Games Your privacy is protected.</p>
       </div>
     </footer>
   </div>
@@ -75,11 +47,9 @@
     let currentUser = null;
     let inQueue = false;
     let socket = null;
+    let currentView = 'pug';
 
-    const toggleQueueBtn = document.getElementById('toggleQueueBtn');
-    const queueSizeEl = document.getElementById('queueSize');
-    const matchFoundEl = document.getElementById('matchFound');
-    const matchPlayersList = document.getElementById('matchPlayersList');
+    const sidebarNav = document.getElementById('sidebarNav');
 
     // --- USER PROFILE ---
     async function loadUserProfile() {
@@ -103,15 +73,20 @@
     }
 
     function displayUserProfile(user) {
-      document.getElementById('userAvatar').src = user.avatarUrl || '/default-avatar.png';
-      document.getElementById('displayName').textContent = user.displayName;
-      document.getElementById('realName').textContent = user.realName || '';
-      document.getElementById('steamId').textContent = `Steam ID: ${user.steamId}`;
-      document.getElementById('profileLink').href = user.profileUrl;
-
-      if (user.lastLoginAt) {
+      const avatar = document.getElementById('userAvatar');
+      const dn = document.getElementById('displayName');
+      const rn = document.getElementById('realName');
+      const sid = document.getElementById('steamId');
+      const pl = document.getElementById('profileLink');
+      const ll = document.getElementById('lastLogin');
+      if (avatar) avatar.src = user.avatarUrl || '/default-avatar.png';
+      if (dn) dn.textContent = user.displayName;
+      if (rn) rn.textContent = user.realName || '';
+      if (sid) sid.textContent = `Steam ID: ${user.steamId}`;
+      if (pl) pl.href = user.profileUrl;
+      if (ll && user.lastLoginAt) {
         const lastLogin = new Date(user.lastLoginAt).toLocaleDateString();
-        document.getElementById('lastLogin').textContent = `Last login: ${lastLogin}`;
+        ll.textContent = `Last login: ${lastLogin}`;
       }
     }
 
@@ -129,7 +104,8 @@
       });
 
       socket.on('queueUpdated', (data) => {
-        queueSizeEl.textContent = data.queueSize;
+        const qEl = document.getElementById('queueSize');
+        if (qEl) qEl.textContent = data.queueSize;
       });
 
       socket.on('matchCreated', (data) => {
@@ -144,56 +120,143 @@
     }
 
     function showMatchFound(players) {
-      matchPlayersList.innerHTML = players.map(p => `<li style="padding: 4px 0; color: var(--text-primary);">👤 ${p.displayName}</li>`).join('');
-      matchFoundEl.style.display = 'block';
+      const list = document.getElementById('matchPlayersList');
+      const panel = document.getElementById('matchFound');
+      if (!list || !panel) return;
+      list.innerHTML = players.map(p => `<li style="padding: 4px 0; color: var(--text-primary);">👤 ${p.displayName}</li>`).join('');
+      panel.style.display = 'block';
     }
 
     // --- QUEUE JOIN/LEAVE ---
-    toggleQueueBtn.addEventListener('click', async () => {
-      toggleQueueBtn.disabled = true;
-      matchFoundEl.style.display = 'none';
+    async function handleQueueToggle(buttons, matchFoundPanel) {
+      buttons.forEach(b => b.disabled = true);
+      if (matchFoundPanel) matchFoundPanel.style.display = 'none';
 
       if (!inQueue) {
-        toggleQueueBtn.textContent = 'Joining...';
+        buttons.forEach(b => b.textContent = 'Joining...');
         try {
           const res = await fetch('/api/matchmaking/start', { method: 'POST' });
           if (!res.ok) throw new Error('Failed to join queue');
-          toggleQueueBtn.textContent = 'Leave Queue';
+          buttons.forEach(b => b.textContent = 'Leave Queue');
           inQueue = true;
         } catch (err) {
           alert('Failed to join matchmaking queue.');
-          toggleQueueBtn.textContent = 'Start Matchmaking';
+          buttons.forEach(b => b.textContent = 'Start Matchmaking');
           console.error(err);
         }
       } else {
-        toggleQueueBtn.textContent = 'Leaving...';
+        buttons.forEach(b => b.textContent = 'Leaving...');
         try {
           const res = await fetch('/api/matchmaking/leave', { method: 'POST' });
           if (!res.ok) throw new Error('Failed to leave queue');
-          toggleQueueBtn.textContent = 'Start Matchmaking';
+          buttons.forEach(b => b.textContent = 'Start Matchmaking');
           inQueue = false;
         } catch (err) {
           alert('Failed to leave matchmaking queue.');
-          toggleQueueBtn.textContent = 'Leave Queue';
+          buttons.forEach(b => b.textContent = 'Leave Queue');
           console.error(err);
         }
       }
-      toggleQueueBtn.disabled = false;
-    });
+      buttons.forEach(b => b.disabled = false);
+    }
 
-    document.getElementById('logoutBtn').addEventListener('click', async () => {
-      try {
-        const res = await fetch('/logout', { method: 'POST' });
-        if (res.ok) window.location.href = '/';
-      } catch (err) {
-        console.error('Logout failed', err);
+    // --- NAV + VIEWS (scalable, React-ready structure) ---
+    const NAV_ITEMS = [
+      { id: 'pug', label: 'PUG' },
+      { id: 'leaderboard', label: 'Leaderboard' },
+      { id: 'inventory', label: 'Inventory' },
+    ];
+
+    function renderNav(items) {
+      if (!sidebarNav) return;
+      sidebarNav.innerHTML = items.map(i => `<button class="nav-item${i.id===currentView?' active':''}" data-view="${i.id}">${i.label}</button>`).join('');
+      sidebarNav.addEventListener('click', (e) => {
+        const target = e.target.closest('.nav-item');
+        if (!target) return;
+        const view = target.getAttribute('data-view');
+        if (view) setActiveView(view);
+      });
+    }
+
+    function renderViewPug() {
+      const root = document.getElementById('mainViewRoot');
+      if (!root) return;
+      root.innerHTML = `
+        <div class=\"pug-quickmatch\">\n          <div class=\"pug-card\">\n            <h3>🎯 Quick Match</h3>\n            <div class=\"queue-meta\">Players in queue: <span id=\"queueSize\">0</span></div>\n            <button id=\"toggleQueueBtn\" class=\"btn btn-primary\">Start Matchmaking</button>\n            <div id=\"matchFound\" class=\"match-found\" style=\"display:none;\">\n              <p>🎉 Match found! Players:</p>\n              <ul id=\"matchPlayersList\" style=\"list-style: none; padding: 0; margin-top: 12px;\"></ul>\n            </div>\n          </div>\n        </div>`;
+      const btn = document.getElementById('toggleQueueBtn');
+      const matchFoundPanel = document.getElementById('matchFound');
+      if (btn) {
+        btn.addEventListener('click', async () => {
+          await handleQueueToggle([btn], matchFoundPanel);
+        });
       }
-    });
+    }
+
+    function renderViewSettings() {
+      const root = document.getElementById('mainViewRoot');
+      if (!root) return;
+      root.innerHTML = `
+        <div class=\"panel\">\n          <h3 style=\"margin-bottom: 12px;\">User Settings</h3>\n          <div class=\"profile-card\">\n            <div class=\"profile-header\">\n              <img id=\"userAvatar\" class=\"avatar\" src=\"\" alt=\"User Avatar\" />\n              <div class=\"profile-info\">\n                <h2 id=\"displayName\" class=\"profile-name\"></h2>\n                <p id=\"realName\" class=\"real-name\"></p>\n                <div class=\"profile-meta\">\n                  <span id=\"steamId\" class=\"steam-id\"></span>\n                  <span id=\"lastLogin\" class=\"last-login\"></span>\n                </div>\n              </div>\n            </div>\n            <div class=\"profile-actions\">\n              <a id=\"profileLink\" href=\"#\" target=\"_blank\" class=\"view-profile-btn\">View Steam Profile</a>\n            </div>\n          </div>\n        </div>`;
+      if (currentUser) displayUserProfile(currentUser);
+    }
+
+    function renderViewLeaderboard() {
+      const root = document.getElementById('mainViewRoot');
+      if (!root) return;
+      root.innerHTML = `<div class=\"panel\"><h3 style=\"margin-bottom: 8px;\">Leaderboard</h3><div class=\"leaderboard-list\" id=\"leaderboardList\"><span>Coming soon</span></div></div>`;
+    }
+
+    function renderViewInventory() {
+      const root = document.getElementById('mainViewRoot');
+      if (!root) return;
+      root.innerHTML = `<div class=\"panel\"><h3 style=\"margin-bottom: 8px;\">Inventory</h3><div class=\"inventory-list\" id=\"inventoryList\"><span>Coming soon</span></div></div>`;
+    }
+
+    function setActiveView(viewId) {
+      currentView = viewId;
+      document.querySelectorAll('.nav-item').forEach(b => b.classList.remove('active'));
+      if (sidebarNav) {
+        const activeBtn = sidebarNav.querySelector(`[data-view="${viewId}"]`);
+        if (activeBtn) activeBtn.classList.add('active');
+      }
+      if (viewId === 'pug') renderViewPug();
+      else if (viewId === 'leaderboard') renderViewLeaderboard();
+      else if (viewId === 'inventory') renderViewInventory();
+      else if (viewId === 'settings') renderViewSettings();
+    }
+
+    // Nav events are bound inside renderNav
+
+    const logoutBtnHeader = document.getElementById('logoutBtn');
+    const logoutBtnSidebar = document.getElementById('logoutBtn2');
+    const settingsLinkEl = document.getElementById('settingsLink');
+    const bindLogout = (el) => {
+      if (!el) return;
+      el.addEventListener('click', async () => {
+        try {
+          const res = await fetch('/logout', { method: 'POST' });
+          if (res.ok) window.location.href = '/';
+        } catch (err) {
+          console.error('Logout failed', err);
+        }
+      });
+    };
+    bindLogout(logoutBtnHeader);
+    bindLogout(logoutBtnSidebar);
+
+    if (settingsLinkEl) {
+      settingsLinkEl.addEventListener('click', (e) => {
+        e.preventDefault();
+        setActiveView('settings');
+      });
+    }
 
     // --- INIT ---
     window.addEventListener('DOMContentLoaded', async () => {
       await loadUserProfile();
       setupSocket();
+      renderNav(NAV_ITEMS);
+      setActiveView(currentView);
     });
   </script>
 </body>
