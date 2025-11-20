@@ -25,7 +25,7 @@ const sessionMiddleware = session({
   secret: process.env.SESSION_SECRET || 'change_this_secret',
   resave: false,
   saveUninitialized: false,
-  cookie: { secure: false, maxAge: 86400 * 1000 },
+  cookie: { secure: process.env.NODE_ENV === 'production', maxAge: 86400 * 1000 },
 });
 
 app.use(cors());
@@ -63,7 +63,6 @@ const matchmakingController = require('./controllers/matchmakingController')(io,
 app.post('/api/matchmaking/start', ensureAuthenticated, matchmakingController.startMatchmaking);
 app.post('/api/matchmaking/leave', ensureAuthenticated, matchmakingController.leaveMatchmaking);
 app.get('/api/matchmaking/status', ensureAuthenticated, matchmakingController.getMatchmakingStatus);
-app.post('/api/matchmaking/reset', matchmakingController.resetMatchmakingQueue);
 
 // Serve static pages
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));

@@ -1,4 +1,5 @@
 const prisma = require('../services/prismaClient');
+const queueManager = require('../services/queueManager');
 
 exports.getUserProfile = async (req, res) => {
   try {
@@ -6,7 +7,8 @@ exports.getUserProfile = async (req, res) => {
       where: { id: req.user.id },
       include: { friends: true }
     });
-    res.json(user);
+    const currentLobbyId = queueManager.getLobbyIdForUser(req.user.id);
+    res.json({ ...user, currentLobbyId });
   } catch (err) {
     console.error('Error fetching user:', err);
     res.status(500).json({ error: 'Internal server error' });

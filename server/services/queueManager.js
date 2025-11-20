@@ -99,6 +99,10 @@ module.exports = {
     return userIdToLobbyId.has(String(userId));
   },
 
+  getLobbyIdForUser(userId) {
+    return userIdToLobbyId.get(String(userId));
+  },
+
   // Optional: call this when a lobby ends to allow users to re-queue
   releaseLobby(lobbyId, io) {
     const lobby = lobbies.get(lobbyId);
@@ -106,7 +110,7 @@ module.exports = {
     if (Array.isArray(lobby.players)) {
       lobby.players.forEach(p => userIdToLobbyId.delete(String(p.id)));
     }
-    
+
     // Release CS2 instance assignment (if any)
     // Find which instance was assigned to this lobby and release it
     const allStatuses = cs2Server.getAllInstanceStatuses().then(statuses => {
@@ -120,7 +124,7 @@ module.exports = {
     }).catch(err => {
       console.error(`Error releasing instance for lobby ${lobbyId}:`, err.message);
     });
-    
+
     lobbies.delete(lobbyId);
     io.emit('lobbyClosed', { lobbyId });
   },
