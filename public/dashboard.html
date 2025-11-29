@@ -1,15 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard - CS2 Matchmaking</title>
   <link rel="stylesheet" href="styles/styles.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <script src="/socket.io/socket.io.js"></script>
 </head>
+
 <body>
   <div class="container">
 
@@ -38,7 +41,7 @@
 
     <footer class="footer">
       <div class="footer-content">
-        <p>&copy; 2025  ƎԀ⅄Hᄅ Games Your privacy is protected.</p>
+        <p>&copy; 2025 ƎԀ⅄Hᄅ Games Your privacy is protected.</p>
       </div>
     </footer>
   </div>
@@ -55,43 +58,65 @@
     async function loadUserProfile() {
       try {
         const response = await fetch('/api/user');
-        if (!response.ok) {
-          if (response.status === 401) {
-            window.location.href = '/';
-            return;
-          }
+        if (response.status === 401) {
+          // Guest Mode
+          console.log('User is guest');
+          currentUser = null;
+          handleGuestMode();
+        } else if (response.ok) {
+          currentUser = await response.json();
+          handleUserMode();
+        } else {
           throw new Error('Failed to load user profile');
         }
-        currentUser = await response.json();
-        displayUserProfile(currentUser);
         document.getElementById('loadingSpinner').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
       } catch (error) {
         console.error('Error loading user profile:', error);
-        alert('Failed to load user profile. Please refresh.');
+        // Fallback to guest mode on error to allow navigation
+        currentUser = null;
+        handleGuestMode();
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('dashboardContent').style.display = 'block';
       }
     }
 
-    function displayUserProfile(user) {
-      const avatar = document.getElementById('userAvatar');
-      const dn = document.getElementById('displayName');
-      const rn = document.getElementById('realName');
-      const sid = document.getElementById('steamId');
-      const pl = document.getElementById('profileLink');
-      const ll = document.getElementById('lastLogin');
-      if (avatar) avatar.src = user.avatarUrl || '/default-avatar.png';
-      if (dn) dn.textContent = user.displayName;
-      if (rn) rn.textContent = user.realName || '';
-      if (sid) sid.textContent = `Steam ID: ${user.steamId}`;
-      if (pl) pl.href = user.profileUrl;
-      if (ll && user.lastLoginAt) {
-        const lastLogin = new Date(user.lastLoginAt).toLocaleDateString();
-        ll.textContent = `Last login: ${lastLogin}`;
+    function handleGuestMode() {
+      // Hide User specific sidebar items
+      const settingsLink = document.getElementById('settingsLink');
+      const logoutBtn = document.getElementById('logoutBtn2');
+      if (settingsLink) settingsLink.style.display = 'none';
+
+      // Change Logout to Login
+      if (logoutBtn) {
+        logoutBtn.textContent = 'Login with Steam';
+        logoutBtn.classList.remove('btn-danger');
+        logoutBtn.classList.add('btn-primary');
+        // Remove old event listeners by cloning
+        const newBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newBtn, logoutBtn);
+        newBtn.addEventListener('click', () => window.location.href = '/auth/steam');
       }
+    }
+
+    function handleUserMode() {
+      // Ensure settings and logout are correct
+      const settingsLink = document.getElementById('settingsLink');
+      const logoutBtn = document.getElementById('logoutBtn2');
+      if (settingsLink) settingsLink.style.display = 'inline-flex';
+
+      if (logoutBtn) {
+        logoutBtn.textContent = 'Logout';
+        logoutBtn.classList.add('btn-danger');
+        logoutBtn.classList.remove('btn-primary');
+        bindLogout(logoutBtn);
+      }
+      setupSocket();
     }
 
     // --- SOCKET SETUP ---
     function setupSocket() {
+      if (!currentUser) return;
       socket = io('', {
         query: {
           userId: currentUser.id,
@@ -119,16 +144,13 @@
       });
     }
 
-    function showMatchFound(players) {
-      const list = document.getElementById('matchPlayersList');
-      const panel = document.getElementById('matchFound');
-      if (!list || !panel) return;
-      list.innerHTML = players.map(p => `<li style="padding: 4px 0; color: var(--text-primary);">👤 ${p.displayName}</li>`).join('');
-      panel.style.display = 'block';
-    }
-
     // --- QUEUE JOIN/LEAVE ---
     async function handleQueueToggle(buttons, matchFoundPanel) {
+      if (!currentUser) {
+        window.location.href = '/auth/steam';
+        return;
+      }
+
       buttons.forEach(b => b.disabled = true);
       if (matchFoundPanel) matchFoundPanel.style.display = 'none';
 
@@ -160,7 +182,7 @@
       buttons.forEach(b => b.disabled = false);
     }
 
-    // --- NAV + VIEWS (scalable, React-ready structure) ---
+    // --- NAV + VIEWS ---
     const NAV_ITEMS = [
       { id: 'pug', label: 'PUG' },
       { id: 'leaderboard', label: 'Leaderboard' },
@@ -169,7 +191,7 @@
 
     function renderNav(items) {
       if (!sidebarNav) return;
-      sidebarNav.innerHTML = items.map(i => `<button class="nav-item${i.id===currentView?' active':''}" data-view="${i.id}">${i.label}</button>`).join('');
+      sidebarNav.innerHTML = items.map(i => `<button class="nav-item${i.id === currentView ? ' active' : ''}" data-view="${i.id}">${i.label}</button>`).join('');
       sidebarNav.addEventListener('click', (e) => {
         const target = e.target.closest('.nav-item');
         if (!target) return;
@@ -181,35 +203,116 @@
     function renderViewPug() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
+
+      const isGuest = !currentUser;
+      const btnText = isGuest ? 'Login to Play' : 'Start Matchmaking';
+
       root.innerHTML = `
-        <div class=\"pug-quickmatch\">\n          <div class=\"pug-card\">\n            <h3>🎯 Quick Match</h3>\n            <div class=\"queue-meta\">Players in queue: <span id=\"queueSize\">0</span></div>\n            <button id=\"toggleQueueBtn\" class=\"btn btn-primary\">Start Matchmaking</button>\n            <div id=\"matchFound\" class=\"match-found\" style=\"display:none;\">\n              <p>🎉 Match found! Players:</p>\n              <ul id=\"matchPlayersList\" style=\"list-style: none; padding: 0; margin-top: 12px;\"></ul>\n            </div>\n          </div>\n        </div>`;
+        <div class="pug-quickmatch">
+          <div class="pug-card">
+            <h3>🎯 Quick Match</h3>
+            <div class="queue-meta">Players in queue: <span id="queueSize">0</span></div>
+            <button id="toggleQueueBtn" class="btn btn-primary">${btnText}</button>
+            <div id="matchFound" class="match-found" style="display:none;">
+              <p>🎉 Match found! Players:</p>
+              <ul id="matchPlayersList" style="list-style: none; padding: 0; margin-top: 12px;"></ul>
+            </div>
+          </div>
+        </div>`;
+
       const btn = document.getElementById('toggleQueueBtn');
       const matchFoundPanel = document.getElementById('matchFound');
+
       if (btn) {
-        btn.addEventListener('click', async () => {
-          await handleQueueToggle([btn], matchFoundPanel);
-        });
+        if (isGuest) {
+          btn.addEventListener('click', () => window.location.href = '/auth/steam');
+        } else {
+          btn.addEventListener('click', async () => {
+            await handleQueueToggle([btn], matchFoundPanel);
+          });
+        }
       }
     }
 
     function renderViewSettings() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
+
+      if (!currentUser) {
+        root.innerHTML = '<div class="panel"><p>Please login to view settings.</p></div>';
+        return;
+      }
+
       root.innerHTML = `
-        <div class=\"panel\">\n          <h3 style=\"margin-bottom: 12px;\">User Settings</h3>\n          <div class=\"profile-card\">\n            <div class=\"profile-header\">\n              <img id=\"userAvatar\" class=\"avatar\" src=\"\" alt=\"User Avatar\" />\n              <div class=\"profile-info\">\n                <h2 id=\"displayName\" class=\"profile-name\"></h2>\n                <p id=\"realName\" class=\"real-name\"></p>\n                <div class=\"profile-meta\">\n                  <span id=\"steamId\" class=\"steam-id\"></span>\n                  <span id=\"lastLogin\" class=\"last-login\"></span>\n                </div>\n              </div>\n            </div>\n            <div class=\"profile-actions\">\n              <a id=\"profileLink\" href=\"#\" target=\"_blank\" class=\"view-profile-btn\">View Steam Profile</a>\n            </div>\n          </div>\n        </div>`;
-      if (currentUser) displayUserProfile(currentUser);
+        <div class="panel settings-container">
+          <div class="settings-header">
+             <h2>User Settings</h2>
+             <p class="subtitle">Manage your profile and preferences</p>
+          </div>
+          
+          <div class="settings-grid">
+            <!-- Profile Card -->
+            <div class="settings-card profile-summary">
+              <div class="profile-avatar-section">
+                 <img id="userAvatar" class="avatar-large" src="${currentUser.avatarUrl || '/default-avatar.png'}" alt="Avatar" />
+                 <div class="profile-text">
+                    <h3 class="display-name">${currentUser.displayName}</h3>
+                    <span class="steam-id-badge">${currentUser.steamId}</span>
+                 </div>
+              </div>
+              <div class="profile-actions">
+                 <a href="${currentUser.profileUrl}" target="_blank" class="btn btn-outline">
+                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
+                   Steam Profile
+                 </a>
+              </div>
+            </div>
+
+            <!-- General Settings -->
+            <div class="settings-card form-section">
+               <h3>General Information</h3>
+               <div class="form-group">
+                  <label>Real Name</label>
+                  <input type="text" class="input-industrial" value="${currentUser.realName || ''}" readonly placeholder="Not set">
+               </div>
+               <div class="form-group">
+                  <label>Last Login</label>
+                  <div class="static-value">${new Date(currentUser.lastLoginAt).toLocaleString()}</div>
+               </div>
+            </div>
+            
+            <!-- Preferences (Placeholder) -->
+             <div class="settings-card form-section">
+               <h3>Preferences</h3>
+               <div class="form-group">
+                  <label class="checkbox-container">
+                    <input type="checkbox" checked disabled>
+                    <span class="checkmark"></span>
+                    Allow friend requests
+                  </label>
+               </div>
+               <div class="form-group">
+                  <label class="checkbox-container">
+                    <input type="checkbox" checked disabled>
+                    <span class="checkmark"></span>
+                    Show online status
+                  </label>
+               </div>
+            </div>
+          </div>
+        </div>`;
     }
 
     function renderViewLeaderboard() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
-      root.innerHTML = `<div class=\"panel\"><h3 style=\"margin-bottom: 8px;\">Leaderboard</h3><div class=\"leaderboard-list\" id=\"leaderboardList\"><span>Coming soon</span></div></div>`;
+      root.innerHTML = `<div class="panel"><h3 style="margin-bottom: 8px;">Leaderboard</h3><div class="leaderboard-list" id="leaderboardList"><span>Coming soon</span></div></div>`;
     }
 
     function renderViewInventory() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
-      root.innerHTML = `<div class=\"panel\"><h3 style=\"margin-bottom: 8px;\">Inventory</h3><div class=\"inventory-list\" id=\"inventoryList\"><span>Coming soon</span></div></div>`;
+      root.innerHTML = `<div class="panel"><h3 style="margin-bottom: 8px;">Inventory</h3><div class="inventory-list" id="inventoryList"><span>Coming soon</span></div></div>`;
     }
 
     function setActiveView(viewId) {
@@ -225,24 +328,25 @@
       else if (viewId === 'settings') renderViewSettings();
     }
 
-    // Nav events are bound inside renderNav
-
-    const logoutBtnHeader = document.getElementById('logoutBtn');
     const logoutBtnSidebar = document.getElementById('logoutBtn2');
     const settingsLinkEl = document.getElementById('settingsLink');
+
     const bindLogout = (el) => {
       if (!el) return;
-      el.addEventListener('click', async () => {
+      const newEl = el.cloneNode(true);
+      el.parentNode.replaceChild(newEl, el);
+
+      newEl.addEventListener('click', async () => {
         try {
           const res = await fetch('/logout', { method: 'POST' });
-          if (res.ok) window.location.href = '/';
+          if (res.ok) window.location.reload();
+          else window.location.reload();
         } catch (err) {
           console.error('Logout failed', err);
+          window.location.reload();
         }
       });
     };
-    bindLogout(logoutBtnHeader);
-    bindLogout(logoutBtnSidebar);
 
     if (settingsLinkEl) {
       settingsLinkEl.addEventListener('click', (e) => {
@@ -254,10 +358,10 @@
     // --- INIT ---
     window.addEventListener('DOMContentLoaded', async () => {
       await loadUserProfile();
-      setupSocket();
       renderNav(NAV_ITEMS);
       setActiveView(currentView);
     });
   </script>
 </body>
+
 </html>

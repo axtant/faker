@@ -53,6 +53,15 @@ lobbySocketHandler(io);
 // --- ROUTES ---
 app.get('/auth/steam', authController.getSteamAuth);
 app.get('/auth/steam/return', authController.getSteamReturn);
+app.post('/logout', (req, res) => {
+  req.logout((err) => {
+    if (err) return res.status(500).json({ error: 'Logout failed' });
+    req.session.destroy(() => {
+      res.clearCookie('connect.sid');
+      res.sendStatus(200);
+    });
+  });
+});
 
 app.get('/api/user', ensureAuthenticated, userController.getUserProfile);
 app.post('/api/grant-friends-access', ensureAuthenticated, userController.grantFriendsAccess);
@@ -66,10 +75,7 @@ app.get('/api/matchmaking/status', ensureAuthenticated, matchmakingController.ge
 app.post('/api/matchmaking/reset', matchmakingController.resetMatchmakingQueue);
 
 // Serve static pages
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'index.html')));
-app.get('/dashboard', ensureAuthenticated, (req, res) =>
-  res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html'))
-);
+app.get('/', (req, res) => res.sendFile(path.join(__dirname, '..', 'public', 'dashboard.html')));
 
 // --- SERVER START ---
 const PORT = process.env.PORT || 3000;
