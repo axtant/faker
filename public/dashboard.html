@@ -6,6 +6,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard - CS2 Matchmaking</title>
   <link rel="stylesheet" href="styles/styles.css" />
+  <link rel="stylesheet" href="styles/settings.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
@@ -57,43 +58,65 @@
     async function loadUserProfile() {
       try {
         const response = await fetch('/api/user');
-        if (!response.ok) {
-          if (response.status === 401) {
-            window.location.href = '/';
-            return;
-          }
+        if (response.status === 401) {
+          // Guest Mode
+          console.log('User is guest');
+          currentUser = null;
+          handleGuestMode();
+        } else if (response.ok) {
+          currentUser = await response.json();
+          handleUserMode();
+        } else {
           throw new Error('Failed to load user profile');
         }
-        currentUser = await response.json();
-        displayUserProfile(currentUser);
         document.getElementById('loadingSpinner').style.display = 'none';
         document.getElementById('dashboardContent').style.display = 'block';
       } catch (error) {
         console.error('Error loading user profile:', error);
-        alert('Failed to load user profile. Please refresh.');
+        // Fallback to guest mode on error to allow navigation
+        currentUser = null;
+        handleGuestMode();
+        document.getElementById('loadingSpinner').style.display = 'none';
+        document.getElementById('dashboardContent').style.display = 'block';
       }
     }
 
-    function displayUserProfile(user) {
-      const avatar = document.getElementById('userAvatar');
-      const dn = document.getElementById('displayName');
-      const rn = document.getElementById('realName');
-      const sid = document.getElementById('steamId');
-      const pl = document.getElementById('profileLink');
-      const ll = document.getElementById('lastLogin');
-      if (avatar) avatar.src = user.avatarUrl || '/default-avatar.png';
-      if (dn) dn.textContent = user.displayName;
-      if (rn) rn.textContent = user.realName || '';
-      if (sid) sid.textContent = `Steam ID: ${user.steamId}`;
-      if (pl) pl.href = user.profileUrl;
-      if (ll && user.lastLoginAt) {
-        const lastLogin = new Date(user.lastLoginAt).toLocaleDateString();
-        ll.textContent = `Last login: ${lastLogin}`;
+    function handleGuestMode() {
+      // Hide User specific sidebar items
+      const settingsLink = document.getElementById('settingsLink');
+      const logoutBtn = document.getElementById('logoutBtn2');
+      if (settingsLink) settingsLink.style.display = 'none';
+
+      // Change Logout to Login
+      if (logoutBtn) {
+        logoutBtn.textContent = 'Login with Steam';
+        logoutBtn.classList.remove('btn-danger');
+        logoutBtn.classList.add('btn-primary');
+        // Remove old event listeners by cloning
+        const newBtn = logoutBtn.cloneNode(true);
+        logoutBtn.parentNode.replaceChild(newBtn, logoutBtn);
+        newBtn.addEventListener('click', () => window.location.href = '/auth/steam');
       }
+    }
+
+    function handleUserMode() {
+      // Ensure settings and logout are correct
+      const settingsLink = document.getElementById('settingsLink');
+      const logoutBtn = document.getElementById('logoutBtn2');
+      if (settingsLink) settingsLink.style.display = 'inline-flex';
+
+      if (logoutBtn) {
+        logoutBtn.textContent = 'Logout';
+        logoutBtn.classList.add('btn-danger');
+        logoutBtn.classList.remove('btn-primary');
+        bindLogout(logoutBtn);
+      }
+      setupSocket();
     }
 
     // --- SOCKET SETUP ---
     function setupSocket() {
+      if (!currentUser) return;
       socket = io('', {
         query: {
           userId: currentUser.id,
@@ -121,16 +144,13 @@
       });
     }
 
-    function showMatchFound(players) {
-      const list = document.getElementById('matchPlayersList');
-      const panel = document.getElementById('matchFound');
-      if (!list || !panel) return;
-      list.innerHTML = players.map(p => `<li style="padding: 4px 0; color: var(--text-primary);">👤 ${p.displayName}</li>`).join('');
-      panel.style.display = 'block';
-    }
-
     // --- QUEUE JOIN/LEAVE ---
     async function handleQueueToggle(buttons, matchFoundPanel) {
+      if (!currentUser) {
+        window.location.href = '/auth/steam';
+        return;
+      }
+
       buttons.forEach(b => b.disabled = true);
       if (matchFoundPanel) matchFoundPanel.style.display = 'none';
 
@@ -162,7 +182,7 @@
       buttons.forEach(b => b.disabled = false);
     }
 
-    // --- NAV + VIEWS (scalable, React-ready structure) ---
+    // --- NAV + VIEWS ---
     const NAV_ITEMS = [
       { id: 'pug', label: 'PUG' },
       { id: 'leaderboard', label: 'Leaderboard' },
@@ -183,6 +203,10 @@
     function renderViewPug() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
+
+      const isGuest = !currentUser;
+      const btnText = isGuest ? 'Login to Play' : 'Start Matchmaking';
+
       root.innerHTML = `
         <div class="pug-quickmatch">
           <div class="pug-card">
@@ -204,16 +228,27 @@
         </div>`;
       const btn = document.getElementById('toggleQueueBtn');
       const matchFoundPanel = document.getElementById('matchFound');
+
       if (btn) {
-        btn.addEventListener('click', async () => {
-          await handleQueueToggle([btn], matchFoundPanel);
-        });
+        if (isGuest) {
+          btn.addEventListener('click', () => window.location.href = '/auth/steam');
+        } else {
+          btn.addEventListener('click', async () => {
+            await handleQueueToggle([btn], matchFoundPanel);
+          });
+        }
       }
     }
 
     function renderViewSettings() {
       const root = document.getElementById('mainViewRoot');
       if (!root) return;
+
+      if (!currentUser) {
+        root.innerHTML = '<div class="panel"><p>Please login to view settings.</p></div>';
+        return;
+      }
+
       root.innerHTML = `
         <div class="panel">
           <h3 style="margin-bottom: 12px;">User Settings</h3>
@@ -262,24 +297,25 @@
       else if (viewId === 'settings') renderViewSettings();
     }
 
-    // Nav events are bound inside renderNav
-
-    const logoutBtnHeader = document.getElementById('logoutBtn');
     const logoutBtnSidebar = document.getElementById('logoutBtn2');
     const settingsLinkEl = document.getElementById('settingsLink');
+
     const bindLogout = (el) => {
       if (!el) return;
-      el.addEventListener('click', async () => {
+      const newEl = el.cloneNode(true);
+      el.parentNode.replaceChild(newEl, el);
+
+      newEl.addEventListener('click', async () => {
         try {
           const res = await fetch('/logout', { method: 'POST' });
-          if (res.ok) window.location.href = '/';
+          if (res.ok) window.location.reload();
+          else window.location.reload();
         } catch (err) {
           console.error('Logout failed', err);
+          window.location.reload();
         }
       });
     };
-    bindLogout(logoutBtnHeader);
-    bindLogout(logoutBtnSidebar);
 
     if (settingsLinkEl) {
       settingsLinkEl.addEventListener('click', (e) => {
@@ -291,7 +327,6 @@
     // --- INIT ---
     window.addEventListener('DOMContentLoaded', async () => {
       await loadUserProfile();
-      setupSocket();
       renderNav(NAV_ITEMS);
       setActiveView(currentView);
     });
