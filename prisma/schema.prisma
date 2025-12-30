@@ -4,9 +4,12 @@ generator client {
 }
 
 // Data source (PostgreSQL)
+// Supports both direct connection (DATABASE_URL) and pooled connection (DATABASE_POOL_URL)
+// The Prisma client will prefer DATABASE_POOL_URL if available, otherwise use DATABASE_URL
+// For Cloudflare Workers or connection poolers, use DATABASE_POOL_URL
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  url      = env("DATABASE_URL") // Base URL - client code handles pool URL preference
 }
 
 // User Model

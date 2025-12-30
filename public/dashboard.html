@@ -211,15 +211,21 @@
         <div class="pug-quickmatch">
           <div class="pug-card">
             <h3>🎯 Quick Match</h3>
-            <div class="queue-meta">Players in queue: <span id="queueSize">0</span></div>
-            <button id="toggleQueueBtn" class="btn btn-primary">${btnText}</button>
+            ${currentUser && currentUser.currentLobbyId ?
+          `<div class="active-lobby-alert">
+                 <p>⚠️ You are currently in an active lobby!</p>
+                 <a href="/lobby/lobby.html?lobbyId=${currentUser.currentLobbyId}" class="btn btn-success" style="margin-top:10px; display:inline-block;">Return to Matchroom</a>
+               </div>`
+          :
+          `<div class="queue-meta">Players in queue: <span id="queueSize">0</span></div>
+               <button id="toggleQueueBtn" class="btn btn-primary">Start Matchmaking</button>`
+        }
             <div id="matchFound" class="match-found" style="display:none;">
               <p>🎉 Match found! Players:</p>
               <ul id="matchPlayersList" style="list-style: none; padding: 0; margin-top: 12px;"></ul>
             </div>
           </div>
         </div>`;
-
       const btn = document.getElementById('toggleQueueBtn');
       const matchFoundPanel = document.getElementById('matchFound');
 
@@ -244,63 +250,26 @@
       }
 
       root.innerHTML = `
-        <div class="panel settings-container">
-          <div class="settings-header">
-             <h2>User Settings</h2>
-             <p class="subtitle">Manage your profile and preferences</p>
-          </div>
-          
-          <div class="settings-grid">
-            <!-- Profile Card -->
-            <div class="settings-card profile-summary">
-              <div class="profile-avatar-section">
-                 <img id="userAvatar" class="avatar-large" src="${currentUser.avatarUrl || '/default-avatar.png'}" alt="Avatar" />
-                 <div class="profile-text">
-                    <h3 class="display-name">${currentUser.displayName}</h3>
-                    <span class="steam-id-badge">${currentUser.steamId}</span>
-                 </div>
-              </div>
-              <div class="profile-actions">
-                 <a href="${currentUser.profileUrl}" target="_blank" class="btn btn-outline">
-                   <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 17.93c-3.95-.49-7-3.85-7-7.93 0-.62.08-1.21.21-1.79L9 15v1c0 1.1.9 2 2 2v1.93zm6.9-2.54c-.26-.81-1-1.39-1.9-1.39h-1v-3c0-.55-.45-1-1-1H8v-2h2c.55 0 1-.45 1-1V7h2c1.1 0 2-.9 2-2v-.41c2.93 1.19 5 4.06 5 7.41 0 2.08-.8 3.97-2.1 5.39z"/></svg>
-                   Steam Profile
-                 </a>
+        <div class="panel">
+          <h3 style="margin-bottom: 12px;">User Settings</h3>
+          <div class="profile-card">
+            <div class="profile-header">
+              <img id="userAvatar" class="avatar" src="" alt="User Avatar" />
+              <div class="profile-info">
+                <h2 id="displayName" class="profile-name"></h2>
+                <p id="realName" class="real-name"></p>
+                <div class="profile-meta">
+                  <span id="steamId" class="steam-id"></span>
+                  <span id="lastLogin" class="last-login"></span>
+                </div>
               </div>
             </div>
-
-            <!-- General Settings -->
-            <div class="settings-card form-section">
-               <h3>General Information</h3>
-               <div class="form-group">
-                  <label>Real Name</label>
-                  <input type="text" class="input-industrial" value="${currentUser.realName || ''}" readonly placeholder="Not set">
-               </div>
-               <div class="form-group">
-                  <label>Last Login</label>
-                  <div class="static-value">${new Date(currentUser.lastLoginAt).toLocaleString()}</div>
-               </div>
-            </div>
-            
-            <!-- Preferences (Placeholder) -->
-             <div class="settings-card form-section">
-               <h3>Preferences</h3>
-               <div class="form-group">
-                  <label class="checkbox-container">
-                    <input type="checkbox" checked disabled>
-                    <span class="checkmark"></span>
-                    Allow friend requests
-                  </label>
-               </div>
-               <div class="form-group">
-                  <label class="checkbox-container">
-                    <input type="checkbox" checked disabled>
-                    <span class="checkmark"></span>
-                    Show online status
-                  </label>
-               </div>
+            <div class="profile-actions">
+              <a id="profileLink" href="#" target="_blank" class="view-profile-btn">View Steam Profile</a>
             </div>
           </div>
         </div>`;
+      if (currentUser) displayUserProfile(currentUser);
     }
 
     function renderViewLeaderboard() {
